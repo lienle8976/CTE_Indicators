@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HỆ THỐNG GIÁM SÁT CHỈ SỐ CHẤT LƯỢNG</title>
+<style>
+body{margin:0;font:14px/1.55 Arial,sans-serif;background:#f2f6f8;color:#193847}
+.box{max-width:560px;margin:15vh auto 0;padding:24px;text-align:center}
+.brand{font-size:12px;letter-spacing:1px;color:#087789;font-weight:600;margin-bottom:6px}
+h2{font-size:22px;font-weight:600;margin:0 0 16px}
+#msg{color:#536d7a}#msg.err{color:#a82d2d}
+button{font:inherit;min-height:42px;border-radius:7px;border:1px solid #075b6b;padding:8px 16px;background:#075b6b;color:#fff;margin-top:14px;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="box">
+ <div class="brand">BỆNH VIỆN MẮT CAO THẮNG</div>
+ <h2>HỆ THỐNG GIÁM SÁT CHỈ SỐ CHẤT LƯỢNG</h2>
+ <p id="msg">Đang tải hệ thống…</p>
+ <button id="retry" type="button" hidden>Thử lại</button>
+</div>
+<script>
+/* ===== CHỈ SỬA DÒNG NÀY: dán link Ứng dụng web (kết thúc bằng /exec) ===== */
+const API_URL='https://script.google.com/macros/s/AKfycby-SOz1RTX_-WiQQQnchCTII94ekJr0zhypvz-EB7TwekNYVNyOTlfmUlcSQLVldKw6/exec';
+/* ======================================================================== */
+
+// Gọi Apps Script không kèm cookie đăng nhập Google (credentials:'omit'),
+// nên không bị lỗi "không thể mở tệp" khi trình duyệt đăng nhập nhiều tài khoản.
+async function cthCall(fn,args){
+ const res=await fetch(API_URL,{method:'POST',credentials:'omit',redirect:'follow',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn:fn,args:args||[]})});
+ if(!res.ok)throw new Error('Máy chủ trả lỗi '+res.status+'.');
+ let data;try{data=await res.json();}catch(e){throw new Error('Không đọc được phản hồi. Kiểm tra link /exec và quyền truy cập "Bất kỳ ai".');}
+ if(!data.ok)throw new Error(data.error||'Không rõ lỗi.');
+ return data.result;
+}
+// Thay cho google.script.run để giao diện gốc chạy nguyên vẹn.
+const CTH_SHIM=function(){
+ window.google={script:{run:(function make(ok,fail){
+  const base={withSuccessHandler:f=>make(f,fail),withFailureHandler:f=>make(ok,f)};
+  return new Proxy(base,{get(t,p){
+   if(p in t)return t[p];if(typeof p!=='string'||p==='then')return undefined;
+   return (...args)=>{window.cthCall(p,args).then(r=>{if(ok)ok(r);},e=>{if(fail)fail({message:e.message||String(e)});});};
+  }});
+ })()}};
+};
+async function start(){
+ const msg=document.getElementById('msg'),retry=document.getElementById('retry');
+ msg.className='';msg.textContent='Đang tải hệ thống…';retry.hidden=true;
+ try{
+  if(!/^https:\/\/script\.google\.com\/.+\/exec$/.test(API_URL))throw new Error('Chưa dán link /exec vào dòng API_URL trong index.html.');
+  const html=await cthCall('boot',[]);
+  const head='<title>HỆ THỐNG GIÁM SÁT CHỈ SỐ CHẤT LƯỢNG</title><script>window.API_URL='+JSON.stringify(API_URL)+';window.cthCall='+cthCall.toString().replace('API_URL','window.API_URL')+';('+CTH_SHIM.toString()+')();<\/script>';
+  document.open();document.write(html.replace('<head>','<head>'+head));document.close();
+ }catch(e){
+  msg.className='err';msg.textContent='Chưa tải được hệ thống: '+e.message;retry.hidden=false;
+ }
+}
+document.getElementById('retry').addEventListener('click',start);
+start();
+</script>
+</body>
+</html>
